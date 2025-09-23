@@ -1,0 +1,4 @@
+- Wires are alot of the motors , around each motor we have 9 wires so we are bringin in CAN communication to limit wires to only 4 ( 12V bus and Can Bus) with 2 of each. To pass through Hollow shaft.
+- Holding torque with zero motion is always going to produce heat. As current have to convert to something else if not motion.
+    - Al the very least we can add current sensing + shunts to measure current going in and hard cut that with a limit based on temperaure sensor on motor.
+    - Link : https://chatgpt.com/share/68c27ee4-58ac-8005-99c9-39c60b1bd00c

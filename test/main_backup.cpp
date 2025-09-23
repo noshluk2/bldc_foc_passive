@@ -68,10 +68,10 @@ void loop() {
       target_angle = motor.shaft_angle;
       is_locked = true;
     }
-    
+
     // Calculate the error from our captured target angle.
     float error = normalizeAngle(target_angle - motor.shaft_angle);
-    
+
     // The PID controller calculates the torque to hold the position.
     pid_torque = pid_position(error);
 

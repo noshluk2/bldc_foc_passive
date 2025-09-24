@@ -1,55 +1,49 @@
-// Simple encoder readout test for manual rotation (ESP32 + AS5048A SPI)
+// Minimal AS5048A readout (ESP32 + SimpleFOC): ticks + angle_rad
 #include <Arduino.h>
 #include <SimpleFOC.h>
 #include <SPI.h>
 
-static const int PIN_CS   = 7;  // white
-static const int PIN_SCK  = 4;  // blue
-static const int PIN_MISO = 5;  // green
-static const int PIN_MOSI = 6;  // yellow
+static const int PIN_CS   = 7;  // CS   , white
+static const int PIN_SCK  = 4;  // SCK  , blue
+static const int PIN_MISO = 5;  // MISO , green
+static const int PIN_MOSI = 6;  // MOSI , yellow
 
-MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, PIN_CS);
 
-// Optional motor/driver placeholders (kept disabled)
-BLDCDriver3PWM driver = BLDCDriver3PWM(26, 25, 33, 32);
-BLDCMotor motor = BLDCMotor(7);
+
+MagneticSensorSPI sensor(AS5048_SPI, PIN_CS);
+
+const uint32_t REPORT_MS = 50;                 // 20 Hz output
+const float    K_RAD2TICKS = 16384.0f / (2.0f * PI);  // rad -> ticks
 
 unsigned long last_report = 0;
-const uint32_t report_ms = 50;
 
 void setup() {
   Serial.begin(115200);
   delay(50);
 
-  // SPI with explicit pin mapping (ESP32)
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
   pinMode(PIN_CS, OUTPUT);
   digitalWrite(PIN_CS, HIGH);
 
-  // Sensor init on the SPI bus we just configured
   sensor.init(&SPI);
 
-  // Link to motor only if you want SimpleFOC helpers later
-  motor.linkSensor(&sensor);
-
-  Serial.println("Encoder Read Test (AS5048A SPI) — rotate the shaft by hand");
-  Serial.println("time_ms,angle_rad,velocity_rad_s");
+  Serial.println(F("ticks,angle_rad"));
 }
 
 void loop() {
-  // Update sensor (needed for correct velocity)
   sensor.update();
 
-  float angle = sensor.getAngle();
-  float velocity = sensor.getVelocity();
+  // Current angle in radians [0, 2π)
+  float angle_rad = sensor.getAngle();
+
+  // Convert to native 14-bit ticks [0..16383]
+  uint16_t ticks = (uint16_t)(angle_rad * K_RAD2TICKS + 0.5f) & 0x3FFF;
 
   unsigned long now = millis();
-  if (now - last_report >= report_ms) {
+  if (now - last_report >= REPORT_MS) {
     last_report = now;
-    Serial.print(now);
+    Serial.print(ticks);
     Serial.print(",");
-    Serial.print(angle, 6);
-    Serial.print(",");
-    Serial.println(velocity, 6);
+    Serial.println(angle_rad, 9);  // high precision print
   }
 }

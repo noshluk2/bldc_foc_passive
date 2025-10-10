@@ -6,8 +6,8 @@
 #include <SimpleFOC.h>
 
 // -------- Driver + Motor (adjust pins to your board) --------
-BLDCDriver3PWM driver = BLDCDriver3PWM(/*Ua*/26, /*Ub*/25, /*Uc*/33, /*EN*/32);
-BLDCMotor motor = BLDCMotor(/*pole pairs*/7);   // 7 for 14-pole gimbal
+BLDCDriver3PWM driver(/*Ua*/0, /*Ub*/1, /*Uc*/3, /*EN*/-1);
+BLDCMotor motor = BLDCMotor(/*pole pairs*/7);   // 7 fo      r 14-pole gimbal
 
 // -------- User controls --------
 float resist_pct = 50.0f;           // 0..100% hold strength

@@ -6,8 +6,8 @@
 #include <math.h>   // fminf/fmaxf
 
 // ---------- CONFIG ----------
-#define NODE_ID            2     // change per device: 1,2,3,...
-#define START_OFFSET_MS    6     // stagger: 0, 6, 13, 19 ms etc
+#define NODE_ID            1     // change per device: 1,2,3,...
+#define START_OFFSET_MS    0     // stagger: 0, 6, 13, 19 ms etc
 #define SEND_TICKS         0     // 0 = send radians, 1 = send raw ticks (0..16383) as float
 
 // ---------- AP (Receiver) credentials ----------

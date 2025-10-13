@@ -1,157 +1,103 @@
+// === Cubemars gimbal + SimpleFOC + AS5048A (SPI) ===
+// Mode: Smooth passive feel with viscous damping (no steppy feel)
+// ESP32-C3 (e.g., LOLIN C3 Mini) + your pin map
+
 #include <Arduino.h>
-#include <WiFi.h>
-#include <esp_now.h>
-#include <SPI.h>
 #include <SimpleFOC.h>
-#include <math.h>   // fminf/fmaxf
+#include <SPI.h>
+#include <math.h>
 
-// ---------- CONFIG ----------
-#define NODE_ID            1     // change per device: 1,2,3,...
-#define START_OFFSET_MS    0     // stagger: 0, 6, 13, 19 ms etc
-#define SEND_TICKS         0     // 0 = send radians, 1 = send raw ticks (0..16383) as float
+// ---------- YOUR PINS ----------
+static const int PIN_CS   = 7;  // AS5048A CS   (white)
+static const int PIN_SCK  = 4;  // SCK          (blue)
+static const int PIN_MISO = 5;  // MISO         (green)
+static const int PIN_MOSI = 6;  // MOSI         (yellow)
 
-// ---------- AP (Receiver) credentials ----------
-static const char* AP_SSID = "ESP_NOW_HUB";
-static const char* AP_PASS = "espnow123";
+// 3-PWM driver pins (ESP32-C3)
+BLDCDriver3PWM driver(/*Ua*/0, /*Ub*/1, /*Uc*/3, /*EN*/-1);
 
-// ---------- AS5048A SPI pins (ESP32-C3 SuperMini) ----------
-static const int PIN_CS   = 7;  // CS
-static const int PIN_SCK  = 4;  // SCK
-static const int PIN_MISO = 5;  // MISO
-static const int PIN_MOSI = 6;  // MOSI
+// Cubemars GL30: start with 7 pole pairs (some variants are 11)
+BLDCMotor motor(7);
 
-// AS5048A via SimpleFOC
+// AS5048A over SPI (SimpleFOC preset: 14-bit, mode 1)
 MagneticSensorSPI sensor(AS5048_SPI, PIN_CS);
 
-// ---------- ESP-NOW packet ----------
-#pragma pack(push,1)
-struct Packet {
-  uint8_t  node_id;
-  uint16_t seq;
-  uint32_t t_ms;
-  float    value;     // radians (if SEND_TICKS=0) or ticks (if SEND_TICKS=1)
-};
-#pragma pack(pop)
+// ---------- USER KNOBS ----------
+static const float BUS_VOLTAGE     = 12.0f;
+static const float VOLTAGE_LIMIT_V = 1.0f;    // start 0.8–1.2 V
+static const uint32_t PWM_HZ       = 25000;   // 25 kHz
+static const float    VEL_LPF_Tf   = 0.03f;   // 20–40 ms helps smooth very low speed
 
-// ---------- Radio state ----------
-static uint8_t  peer_mac[6] = {0};
-static bool     peer_ready  = false;
-static uint16_t seq         = 0;
+// Viscous damping (main anti-step knob): tau = -Kd * omega
+static const float Kd_visc         = 0.07f;   // try 0.05–0.10 V/(rad/s)
 
-static const float K_RAD2TICKS = 16384.0f / (2.0f * PI);
+// Smooth Coulomb term (optional): prevents micro stick-slip near zero speed
+static const float Coulomb_V       = 0.06f;   // 0.03–0.10 V; keep small
+static const float Coulomb_scale   = 0.3f;    // slope of tanh near zero
 
-// ---------- Helpers ----------
-static bool addPeer(const uint8_t mac[6], uint8_t channel) {
-  esp_now_peer_info_t info{};
-  memcpy(info.peer_addr, mac, 6);
-  info.channel = channel;   // must match AP channel
-  info.encrypt = false;
-  if (esp_now_is_peer_exist(mac)) esp_now_del_peer(mac);
-  return (esp_now_add_peer(&info) == ESP_OK);
-}
+// Tiny low-freq dither (optional): gentle nudge through residual cogging
+static const float DITHER_V        = 0.03f;   // 0.02–0.05 V max
+static const float DITHER_HZ       = 7.0f;    // low & inaudible
 
-// median without std::swap (no extra headers needed)
-static inline float median3f(float a, float b, float c) {
-  float mn = fminf(a, fminf(b, c));
-  float mx = fmaxf(a, fmaxf(b, c));
-  return (a + b + c) - mn - mx;
-}
-
-static inline float wrap_0_2pi(float x) {
-  // keep in [0, 2π)
-  while (x >= 2.0f * PI) x -= 2.0f * PI;
-  while (x <  0.0f)      x += 2.0f * PI;
-  return x;
+static inline float clampV(float x, float lim) {
+  return x >  lim ?  lim : (x < -lim ? -lim : x);
 }
 
 void setup() {
-  Serial.begin(115200);
   delay(200);
-  Serial.printf("\n=== Sender AS5048A → ESP-NOW | NODE=%d | OFFSET=%dms | %s ===\n",
-                NODE_ID, START_OFFSET_MS, SEND_TICKS ? "SENDING TICKS" : "SENDING RADIANS");
+  Serial.begin(115200);
 
-  // ---- SPI & Sensor ----
-  SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
-  pinMode(PIN_CS, OUTPUT);
-  digitalWrite(PIN_CS, HIGH);
-  sensor.init(&SPI);
+  // SPI with explicit pins on ESP32
+  SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI);
+  sensor.init();
+  motor.linkSensor(&sensor);
 
-  // ---- Wi-Fi join to lock channel ----
-  WiFi.mode(WIFI_STA);
-  WiFi.persistent(false);
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+  // Driver
+  driver.voltage_power_supply = BUS_VOLTAGE;
+  driver.voltage_limit        = VOLTAGE_LIMIT_V;
+  driver.pwm_frequency        = PWM_HZ;
+  driver.init();
 
-  WiFi.begin(AP_SSID, AP_PASS);
-  Serial.printf("Connecting to AP \"%s\" ...\n", AP_SSID);
-  uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
-    delay(200);
-    Serial.print(".");
-  }
-  Serial.println();
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Failed to join AP. Rebooting...");
-    delay(1000);
-    ESP.restart();
-  }
+  // Motor
+  motor.controller        = MotionControlType::torque;     // command torque directly
+  motor.torque_controller = TorqueControlType::voltage;    // voltage-mode (no current sensors)
+  motor.voltage_limit     = VOLTAGE_LIMIT_V;
+  motor.foc_modulation    = FOCModulationType::SpaceVectorPWM;
+  motor.LPF_velocity.Tf   = VEL_LPF_Tf;
 
-  uint8_t ch = WiFi.channel();
-  Serial.printf("Joined AP. CH=%u  IP=%s\n", ch, WiFi.localIP().toString().c_str());
-  memcpy(peer_mac, WiFi.BSSID(), 6);
-  Serial.printf("Peer (AP) MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                peer_mac[0],peer_mac[1],peer_mac[2],peer_mac[3],peer_mac[4],peer_mac[5]);
+  // If it "fights" you after first try, set direction BEFORE initFOC():
+  // motor.sensor_direction = Direction::CCW;  // or Direction::CW;
 
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("esp_now_init FAILED. Rebooting...");
-    delay(1000);
-    ESP.restart();
-  }
-  if (!addPeer(peer_mac, ch)) {
-    Serial.println("esp_now_add_peer FAILED. Rebooting...");
-    delay(1000);
-    ESP.restart();
-  }
-  peer_ready = true;
+  motor.init();
+  motor.initFOC();
 
-  // stagger to reduce collisions
-  delay(START_OFFSET_MS);
-
-  Serial.println("Setup complete. Streaming at 50 Hz…");
+  Serial.println("FOC ready. Viscous damping mode (SimpleFOC >= 2.x API).");
 }
 
 void loop() {
-  if (!peer_ready) return;
+  motor.loopFOC();
 
-  // Take 3 quick reads to reject single-frame glitches
-  sensor.update(); float a1 = sensor.getAngle();   // radians
-  sensor.update(); float a2 = sensor.getAngle();
-  sensor.update(); float a3 = sensor.getAngle();
+  // Velocity from SimpleFOC (already LPF'ed): rad/s
+  const float omega = motor.shaftVelocity();
 
-  float a_med = median3f(a1, a2, a3);
-  static float a_ema = a_med;
-  const float alpha = 0.30f;           // low-pass smoothing
-  // handle wrap-around smoothly
-  float err = a_med - a_ema;
-  if (err >  PI)  err -= 2.0f * PI;
-  if (err < -PI)  err += 2.0f * PI;
-  a_ema = wrap_0_2pi(a_ema + alpha * err);
+  // 1) Viscous damping: continuous opposing torque while moving
+  float tau = -Kd_visc * omega;
 
-  float payload = SEND_TICKS
-                  ? (float)((uint16_t)((a_ema * K_RAD2TICKS + 0.5f)) & 0x3FFF)  // ticks as float
-                  : a_ema;                                                     // radians
+  // 2) Tiny smooth Coulomb-like term near zero speed
+  tau += -Coulomb_V * tanh(omega / Coulomb_scale);
 
-  // 50 Hz scheduler
-  static uint32_t last_send = 0;
-  uint32_t now = millis();
-  if (now - last_send >= 20) {
-    last_send = now;
+  // 3) Low-frequency micro-dither
+  static uint32_t t0 = millis();
+  float t = 0.001f * (millis() - t0);
+  tau += DITHER_V * sinf(2.0f * PI * DITHER_HZ * t);
 
-    Packet p;
-    p.node_id = (uint8_t)NODE_ID;
-    p.seq     = ++seq;
-    p.t_ms    = now;
-    p.value   = payload;
+  // Safety clamp
+  tau = clampV(tau, VOLTAGE_LIMIT_V);
 
-    esp_now_send(peer_mac, (const uint8_t*)&p, sizeof(p));
-  }
+  motor.move(tau);
+
+  // // Optional debug:
+  // static uint32_t last=0; if (millis()-last>200) { last=millis();
+  //   Serial.printf("omega=%.3f rad/s  tau=%.3f V\n", omega, tau);
+  // }
 }

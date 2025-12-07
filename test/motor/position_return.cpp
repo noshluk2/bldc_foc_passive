@@ -1,3 +1,6 @@
+// AS5048A SPI readout sanity test: prints angle and velocity while you spin by hand.
+// Initializes the sensor with mapped pins; motor/driver objects stay disabled.
+// Logs at 20 Hz to serial—safe to use with the driver unpowered.
 // Simple encoder readout test for manual rotation (ESP32 + AS5048A SPI)
 #include <Arduino.h>
 #include <SimpleFOC.h>
@@ -6,10 +9,10 @@
 // AS5048A on SPI, CS = GPIO27 (white)
 // g ,y,b,w
 // miso mosi clk csn
-static const int PIN_CS   = 27;  // white
-static const int PIN_SCK  = 13;  // blue
-static const int PIN_MISO = 12;  // green
-static const int PIN_MOSI = 14;  // yellow
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, PIN_CS);
 

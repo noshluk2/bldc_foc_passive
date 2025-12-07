@@ -1,3 +1,6 @@
+// ESP-NOW sender: joins the hub AP, reads AS5048A angle, and streams packets at 50 Hz.
+// Supports multiple nodes with unique NODE_ID and optional tick/radian payloads.
+// Staggers start to reduce collisions; peer config derived from the joined AP.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
@@ -15,10 +18,10 @@ static const char* AP_SSID = "ESP_NOW_HUB";
 static const char* AP_PASS = "espnow123";
 
 // ---------- AS5048A SPI pins (ESP32-C3 SuperMini) ----------
-static const int PIN_CS   = 7;  // CS
-static const int PIN_SCK  = 4;  // SCK
-static const int PIN_MISO = 5;  // MISO
-static const int PIN_MOSI = 6;  // MOSI
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 // AS5048A via SimpleFOC
 MagneticSensorSPI sensor(AS5048_SPI, PIN_CS);

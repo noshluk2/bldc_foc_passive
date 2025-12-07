@@ -1,3 +1,6 @@
+// Zero-torque FOC mode for a Cubemars gimbal: aims for buttery free rotation.
+// Runs SimpleFOC with AS5048A feedback, minimal voltage limits, no added damping.
+// Good baseline to feel mechanical cogging; flip sensor direction or pole pairs if fighty.
 // === Cubemars gimbal + SimpleFOC + AS5048A (SPI) ===
 // Mode: Zero-torque (passive) — buttery free rotation (controller adds no steps)
 
@@ -6,10 +9,10 @@
 #include <SPI.h>
 
 // ---------- YOUR PINS ----------
-static const int PIN_CS   = 7;  // AS5048A CS   (white)
-static const int PIN_SCK  = 4;  // SCK          (blue)
-static const int PIN_MISO = 5;  // MISO         (green)
-static const int PIN_MOSI = 6;  // MOSI         (yellow)
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 // Motor driver (3-PWM). EN = -1 means always enabled or not used.
 BLDCDriver3PWM driver(/*Ua*/0, /*Ub*/1, /*Uc*/3, /*EN*/-1);

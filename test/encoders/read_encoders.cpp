@@ -1,12 +1,15 @@
+// AS5048A SPI readout demo: reports 14-bit ticks and radians on ESP32.
+// Configures custom SPI pins, updates the sensor, and prints at 20 Hz.
+// Safe for bench testing; driver objects are absent.
 // Minimal AS5048A readout (ESP32 + SimpleFOC): ticks + angle_rad
 #include <Arduino.h>
 #include <SimpleFOC.h>
 #include <SPI.h>
 
-static const int PIN_CS   = 7;  // CS   , white
-static const int PIN_SCK  = 4;  // SCK  , blue
-static const int PIN_MISO = 5;  // MISO , green
-static const int PIN_MOSI = 6;  // MOSI , yellow
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 
 

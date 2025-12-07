@@ -1,3 +1,6 @@
+// Sensorless static hold test: applies a fixed stator field at a chosen angle.
+// Adjust hold strength (0–100%) and electrical angle over serial; slew-limited for smoothness.
+// Uses SimpleFOC driver without an encoder; logs applied voltage and angle.
 // Sensorless static hold with 0..100% strength (ESP32 + BLDCDriver3PWM)
 // Applies a fixed stator field at a chosen electrical angle to "lock" the rotor.
 // Serial: send "50" or "50%" to set strength, "A=60" to set angle in degrees.

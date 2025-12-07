@@ -45,3 +45,12 @@
     - solution researched : can bus
 
 
+#### New Board Testing
+- Udp Data Sending
+    - /home/luqman/bldc_foc_passive/test/wifi/udp_test_sender.cpp -> ESP32
+    - /home/luqman/bldc_foc_passive/test/wifi/udp_test_server.py -> PC
+
+- Encoders testing
+    - /home/luqman/bldc_foc_passive/test/encoders/read_encoders_udp.cpp
+- Motor Driving testing
+    - /home/luqman/bldc_foc_passive/test/motor/simple_drive.cpp

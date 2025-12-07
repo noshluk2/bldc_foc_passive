@@ -28,4 +28,3 @@
 1. Wire managment : cannot make all encoders + 12V buss wires throuh hollow shaft
     - solution researched : can bus
 
-

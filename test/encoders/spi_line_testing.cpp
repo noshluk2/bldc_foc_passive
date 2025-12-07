@@ -1,10 +1,13 @@
+// SPI sanity check: toggles CS and transfers 0x55 to verify wiring on custom pins.
+// Prints returned byte every 500 ms to confirm clock/MISO/MOSI behavior.
+// Use before sensor bring-up to rule out wiring mistakes.
 #include <Arduino.h>
 #include <SPI.h>
 
-const int PIN_SCK  = 4;
-const int PIN_MISO = 5;
-const int PIN_MOSI = 6;
-const int PIN_CS   = 7;
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 void setup() {
   Serial.begin(115200);

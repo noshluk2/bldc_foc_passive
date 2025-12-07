@@ -1,3 +1,6 @@
+// ESP-NOW receiver hub: starts a Wi-Fi AP and aggregates packets from joint nodes.
+// Tracks latest seq/value per node_id and prints J1/J2/J3 lines at 50 Hz.
+// Logs AP events (join/leave) and ignores unexpected payload sizes.
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>

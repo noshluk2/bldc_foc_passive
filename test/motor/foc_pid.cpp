@@ -1,3 +1,6 @@
+// Soft spring/damper position hold test using SimpleFOC and AS5048A on ESP32-C3.
+// Holds a fixed mechanical angle with low voltage limits to keep a gimbal gentle.
+// No serial UI or logs—tune TARGET_DEG/KP/KD and reflash.
 // ESP32-C3 + SimpleFOC + AS5048A
 // Minimal soft-spring position hold at a fixed angle (no serial, no logs)
 
@@ -22,10 +25,10 @@ static const int PIN_WH = 10;
 static const int PIN_EN = -1;  // set a GPIO if your driver has EN, else -1
 
 // AS5048A SPI (ok to keep these)
-static const int PIN_SCK  = 4;
-static const int PIN_MISO = 5;
-static const int PIN_MOSI = 6;
-static const int PIN_CS   = 7;
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 // ===================== OBJECTS =====================
 BLDCMotor motor(POLE_PAIRS);

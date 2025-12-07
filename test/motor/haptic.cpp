@@ -1,3 +1,6 @@
+// Adaptive hold/haptic feel: spring-damper that softens as you spin faster.
+// Reads AS5048A via SPI and drives a SimpleFOC BLDC with voltage-mode torque.
+// Serial: set base %, re-center hold, tweak torque cap; streams state logs.
 // Adaptive Hold: resistance drops as you rotate (ESP32 + SimpleFOC + AS5048A SPI)
 // Serial:
 //   - Send a number like "50" or "50%" to set base strength (default 60%)
@@ -9,10 +12,10 @@
 #include <SPI.h>
 
 // ====== SPI wiring (your working mapping) ======
-static const int PIN_CS   = 27;  // white  -> CSn
-static const int PIN_SCK  = 13;  // blue   -> SCK
-static const int PIN_MISO = 12;  // green  -> MISO
-static const int PIN_MOSI = 14;  // yellow -> MOSI
+static const int PIN_CS   = 10;  // CS   , white
+static const int PIN_SCK  = 12;  // SCK  , blue
+static const int PIN_MISO = 13;  // MISO , green
+static const int PIN_MOSI = 11;  // MOSI , yellow
 
 MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, PIN_CS);
 

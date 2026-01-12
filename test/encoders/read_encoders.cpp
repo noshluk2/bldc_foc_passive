@@ -1,52 +1,49 @@
-// AS5048A SPI readout demo: reports 14-bit ticks and radians on ESP32.
-// Configures custom SPI pins, updates the sensor, and prints at 20 Hz.
-// Safe for bench testing; driver objects are absent.
-// Minimal AS5048A readout (ESP32 + SimpleFOC): ticks + angle_rad
 #include <Arduino.h>
 #include <SimpleFOC.h>
 #include <SPI.h>
 
-static const int PIN_CS   = 10;  // CS   , white
-static const int PIN_SCK  = 12;  // SCK  , blue
-static const int PIN_MISO = 13;  // MISO , green
-static const int PIN_MOSI = 11;  // MOSI , yellow
-
-
+// ESP32-C3 Super Mini (common working SPI mapping)
+static const int PIN_CS   = 14;
+static const int PIN_SCK  = 12;
+static const int PIN_MISO = 13;
+static const int PIN_MOSI = 11;
 
 MagneticSensorSPI sensor(AS5048_SPI, PIN_CS);
 
-const uint32_t REPORT_MS = 50;                 // 20 Hz output
-const float    K_RAD2TICKS = 16384.0f / (2.0f * PI);  // rad -> ticks
+const uint32_t REPORT_MS = 200; // slower print for stability
 
 unsigned long last_report = 0;
 
 void setup() {
   Serial.begin(115200);
-  delay(50);
+  delay(300);
+
+  Serial.println("\nBooting...");
 
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
   pinMode(PIN_CS, OUTPUT);
   digitalWrite(PIN_CS, HIGH);
 
+  // Optionally slow down SPI (SimpleFOC uses SPISettings internally, but start stable)
   sensor.init(&SPI);
 
-  Serial.println(F("ticks,angle_rad"));
+  Serial.println("ticks,angle_rad");
 }
 
 void loop() {
   sensor.update();
+  float angle = sensor.getAngle();
 
-  // Current angle in radians [0, 2π)
-  float angle_rad = sensor.getAngle();
-
-  // Convert to native 14-bit ticks [0..16383]
-  uint16_t ticks = (uint16_t)(angle_rad * K_RAD2TICKS + 0.5f) & 0x3FFF;
+  // Convert radians to 14-bit ticks
+  uint16_t ticks = (uint16_t)(angle * (16384.0f / (2.0f * PI)) + 0.5f) & 0x3FFF;
 
   unsigned long now = millis();
   if (now - last_report >= REPORT_MS) {
     last_report = now;
     Serial.print(ticks);
     Serial.print(",");
-    Serial.println(angle_rad, 9);  // high precision print
+    Serial.println(angle, 6);
   }
+
+  delay(1); // yield to avoid watchdog pressure
 }
